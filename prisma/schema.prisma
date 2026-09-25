@@ -1,0 +1,160 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum Role {
+ CUSTOMER
+ ADMIN
+ SUPER_ADMIN
+}
+enum OrderStatus {
+ PENDING
+ CONFIRMED
+ PROCESSING
+ PACKED
+ SHIPPED
+ OUT_FOR_DELIVERY
+ DELIVERED
+ CANCELLED
+ RETURNED
+ REFUNDED
+}
+enum PaymentStatus {
+ PENDING
+ PAID
+ FAILED
+ REFUNDED
+}
+model User {
+ id String @id @default(cuid())
+ email String @unique
+ name String
+ passwordHash String
+ role Role @default(CUSTOMER)
+ createdAt DateTime @default(now())
+ addresses Address[]
+ carts CartItem[]
+ orders Order[]
+ wishlists Wishlist[]
+}
+model Address {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ name String
+ phone String
+ line1 String
+ line2 String?
+ city String
+ state String
+ pin String
+ country String @default("IN")
+}
+model Category {
+ id String @id @default(cuid())
+ name String
+ slug String @unique
+ products Product[]
+}
+model Product {
+ id String @id @default(cuid())
+ name String
+ slug String @unique
+ description String
+ imageUrl String?
+ active Boolean @default(true)
+ featured Boolean @default(false)
+ categoryId String
+ category Category @relation(fields:[categoryId],references:[id])
+ variants Variant[]
+ createdAt DateTime @default(now())
+}
+model Variant {
+ id String @id @default(cuid())
+ productId String
+ product Product @relation(fields:[productId],references:[id],onDelete:Cascade)
+ sku String @unique
+ label String
+ price Int
+ stock Int @default(0)
+ cartItems CartItem[]
+ orderItems OrderItem[]
+}
+model CartItem {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ variantId String
+ variant Variant @relation(fields:[variantId],references:[id])
+ quantity Int
+ @@unique([userId,variantId])
+}
+model Wishlist {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ productId String
+ @@unique([userId,productId])
+}
+model Coupon {
+ id String @id @default(cuid())
+ code String @unique
+ amount Int
+ active Boolean @default(true)
+ minSubtotal Int @default(0)
+ expiresAt DateTime?
+ usageLimit Int?
+ used Int @default(0)
+ orders Order[]
+}
+model Order {
+ id String @id @default(cuid())
+ number String @unique
+ userId String
+ user User @relation(fields:[userId],references:[id])
+ status OrderStatus @default(PENDING)
+ paymentStatus PaymentStatus @default(PENDING)
+ method String
+ subtotal Int
+ discount Int @default(0)
+ shipping Int
+ tax Int @default(0)
+ total Int
+ couponId String?
+ coupon Coupon? @relation(fields:[couponId],references:[id])
+ addressJson Json
+ paymentOrderId String? @unique
+ paymentId String? @unique
+ createdAt DateTime @default(now())
+ items OrderItem[]
+ events OrderEvent[]
+ @@index([userId,createdAt])
+}
+model OrderItem {
+ id String @id @default(cuid())
+ orderId String
+ order Order @relation(fields:[orderId],references:[id],onDelete:Cascade)
+ variantId String
+ variant Variant @relation(fields:[variantId],references:[id])
+ name String
+ sku String
+ label String
+ unitPrice Int
+ quantity Int
+}
+model OrderEvent {
+ id String @id @default(cuid())
+ orderId String
+ order Order @relation(fields:[orderId],references:[id],onDelete:Cascade)
+ status OrderStatus
+ createdAt DateTime @default(now())
+ note String?
+}
+model WebhookEvent {
+ id String @id @default(cuid())
+ eventId String @unique
+ createdAt DateTime @default(now())
+}
